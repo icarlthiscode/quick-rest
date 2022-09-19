@@ -8,5 +8,6 @@ setup(
     package_dir = {'' : 'src'},
     install_requires = [
         'Django>=4.1.1',
+        'pyjwt>=-2.5.0',
     ]
 )
