@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Callable, Dict, List
 
 import random
 import string
@@ -42,7 +42,7 @@ class AuthInfo:
         return self._user_id
 
     @property
-    def permissions(self) -> list['str']:
+    def permissions(self) -> List[str]:
         """The authorized user permision list.
         """
         return self._perm
@@ -63,7 +63,7 @@ class AuthInfo:
     def __init__(
         self,
         user_id: int,
-        permissions: list[str] = None,
+        permissions: List[str] = None,
         use_user = True
     ):
         """Generate new AuthInfo instance.
@@ -117,7 +117,7 @@ def generate_token(payload: dict, key: str = ''):
     raw_token = jwt.encode(payload, k, algorithm='HS256')
     return raw_token
 
-def verify_token(token: str, key: str = '') -> dict[str, str]:
+def verify_token(token: str, key: str = '') -> Dict[str, str]:
     """Verify and decode a JWT token.
 
     Args:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 from tabnanny import verbose
-from typing import Any
+from typing import Any, Dict
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, models
@@ -14,7 +14,7 @@ class ModelError(AttributeError):
 
 def get_fields(
         model: models.Model, field_names, fail_missing = False
-    ) -> dict[str, Any]:
+    ) -> Dict[str, Any]:
     """Create dictionary from a Django model.
 
     Args:
