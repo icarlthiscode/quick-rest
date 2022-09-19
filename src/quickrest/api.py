@@ -34,7 +34,7 @@ class ApiView(JsonView):
         Returns:
             Serialized JSON dictionary.
         """
-        
+
         return model_fields
 
     @classmethod
@@ -54,7 +54,7 @@ class ApiView(JsonView):
         return json_fields
 
     @classmethod
-    def serialize_model(self, model: models.Model) -> dict:
+    def serialize_model(cls, model: models.Model) -> dict:
         """Serialize model instance to JSON.
 
         Args:
@@ -69,17 +69,17 @@ class ApiView(JsonView):
             ModelError:
                 Model field specified in visible_fields does not exist.
         """
-        
-        if not self.visible_fields:
+
+        if not cls.visible_fields:
             raise ConfigError('Attribute visible_fields must be defined.')
-        return self.serialize(
-            get_fields(model, self.visible_fields, self.strict_fields)
+        return cls.serialize(
+            get_fields(model, cls.visible_fields, cls.strict_fields)
         )
 
     @classmethod
     def check_model(cls):
         """Verify model is defined.
-        
+
         Raises:
             ConfigError:
                 Model is not defined.
@@ -87,7 +87,7 @@ class ApiView(JsonView):
 
         if not cls.model:
             raise ConfigError('Attribute visible_fields must be defined.')
-    
+
     @classmethod
     def create_model(cls, **fields) -> models.Model:
         """Create new model instance with inital field values.
@@ -95,7 +95,7 @@ class ApiView(JsonView):
         Args:
             **fields:
                 A set of named arguments specifying model the attributes values
-                to initialize with.  
+                to initialize with.
 
         Returns:
             The newly created model instance.
@@ -138,7 +138,7 @@ class ApiView(JsonView):
 
         cls.check_model()
         try:
-            return cls.model.objects.get(pk = key)
+            return cls.retrieve_all_models().get(pk = key)
         except cls.model.DoesNotExist:
             raise ValueError('Invalid primary key.')
 
@@ -206,7 +206,7 @@ class ApiView(JsonView):
             json = self.json_body[self.model.model_name]
         except KeyError:
             return JsonError.badRequest
-        
+
         try:
             json = self.deserialize(json)
         except DeserializationError:
@@ -220,7 +220,7 @@ class ApiView(JsonView):
                 obj = self.update_model(obj, **json)
             except ValueError:
                 return JsonError.notFound
-            except (ModelError, ValueError):
+            except ModelError:
                 return JsonError.badRequest
 
         else:
@@ -233,7 +233,7 @@ class ApiView(JsonView):
             return {self.model.model_name :
                 self.serialize_model(obj)
             }
-        except (ConfigError, ModelError) as e:
+        except (ConfigError, ModelError):
             return JsonError.serverError
 
     def delete(self, request: HttpRequest, key = None):
