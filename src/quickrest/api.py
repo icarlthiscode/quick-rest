@@ -21,8 +21,7 @@ class ApiView(JsonView):
     visible_fields = None
     strict_fields = True
 
-    @classmethod
-    def serialize(cls, model_fields: dict) -> dict:
+    def serialize(self, model_fields: dict) -> dict:
         """Serialize model fields into JSON dictionary.
 
         Should be overridden to cutomize JSON serialization.
@@ -37,8 +36,7 @@ class ApiView(JsonView):
 
         return model_fields
 
-    @classmethod
-    def deserialize(cls, json_fields: dict) -> dict:
+    def deserialize(self, json_fields: dict) -> dict:
         """Deserialize model fields from JSON dictionary.
 
         Should be overridden to cutomize JSON deserialization.
@@ -53,8 +51,7 @@ class ApiView(JsonView):
 
         return json_fields
 
-    @classmethod
-    def serialize_model(cls, model: models.Model) -> dict:
+    def serialize_model(self, model: models.Model) -> dict:
         """Serialize model instance to JSON.
 
         Args:
@@ -70,14 +67,13 @@ class ApiView(JsonView):
                 Model field specified in visible_fields does not exist.
         """
 
-        if not cls.visible_fields:
+        if not self.visible_fields:
             raise ConfigError('Attribute visible_fields must be defined.')
-        return cls.serialize(
-            get_fields(model, cls.visible_fields, cls.strict_fields)
+        return self.serialize(
+            get_fields(model, self.visible_fields, self.strict_fields)
         )
 
-    @classmethod
-    def check_model(cls):
+    def check_model(self):
         """Verify model is defined.
 
         Raises:
@@ -85,11 +81,10 @@ class ApiView(JsonView):
                 Model is not defined.
         """
 
-        if not cls.model:
+        if not self.model:
             raise ConfigError('Attribute visible_fields must be defined.')
 
-    @classmethod
-    def create_model(cls, **fields) -> models.Model:
+    def create_model(self, **fields) -> models.Model:
         """Create new model instance with inital field values.
 
         Args:
@@ -107,22 +102,20 @@ class ApiView(JsonView):
                 Attribute values are invalid.
         """
 
-        cls.check_model()
-        return cls.model.create(**fields)
+        self.check_model()
+        return self.model.create(**fields)
 
-    @classmethod
-    def retrieve_all_models(cls):
+    def retrieve_all_models(self):
         """Query database for all associated models.
 
         Returns:
             A QuerySet generated from objects.all().
         """
 
-        cls.check_model()
-        return cls.model.objects.all()
+        self.check_model()
+        return self.model.objects.all()
 
-    @classmethod
-    def retrieve_model_by_key(cls, key):
+    def retrieve_model_by_key(self, key):
         """Query database for model by primary key.
 
         Args:
@@ -136,14 +129,13 @@ class ApiView(JsonView):
                 Model instance not found.
         """
 
-        cls.check_model()
+        self.check_model()
         try:
-            return cls.retrieve_all_models().get(pk = key)
-        except cls.model.DoesNotExist:
+            return self.retrieve_all_models().get(pk = key)
+        except self.model.DoesNotExist:
             raise ValueError('Invalid primary key.')
 
-    @classmethod
-    def update_model(cls, model, **fields):
+    def update_model(self, model, **fields):
         """Update and save model with new field values.
 
         Args:
@@ -161,8 +153,7 @@ class ApiView(JsonView):
 
         return model.update(**fields)
 
-    @classmethod
-    def delete_model(cls, model):
+    def delete_model(self, model):
         """Delete model instance from database.
 
         Raises:
@@ -174,7 +165,7 @@ class ApiView(JsonView):
             model.delete()
         except IntegrityError as e:
             raise IntegrityError(
-                f'Could not delete {cls.model.model_name_verbose}'
+                f'Could not delete {self.model.model_name_verbose}'
             ) from e
 
     def get(self, request: HttpRequest, key = None):
