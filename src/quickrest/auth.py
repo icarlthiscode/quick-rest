@@ -236,17 +236,13 @@ def auth_exempt(view_func):
 
     return wrapped_view
 
-def auth_exempt_method():
-    """Mark class-view method as exepmt from authorization.
-    """
+auth_exempt_method = method_decorator(auth_exempt)
+"""Mark class-view method as exepmt from authorization.
+"""
 
-    return method_decorator(auth_exempt)
-
-def auth_exempt_all():
-    """Mark class-view as exepmt from authorization.
-    """
-
-    return method_decorator(auth_exempt, name="dispatch")
+auth_exempt_all = method_decorator(auth_exempt, name="dispatch")
+"""Mark class-view as exepmt from authorization.
+"""
 
 def auth_override(auth_method: Callable[[HttpRequest], None]):
     """Assign authorization method to a functional view.
