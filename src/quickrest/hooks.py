@@ -1,5 +1,7 @@
 import requests
 
+from .log import capture_error
+
 class ConfigError(Exception):
     """An invalid webhook configuration was encountered.
     """
@@ -82,6 +84,7 @@ class Hook:
         try:
             return requests.post(self.url, json = payload)
         except AttributeError as e:
+            capture_error(e)
             raise ConfigError('Webhook endpoint is not defined') from e
 
     def fire(self, *args, **kwargs) -> dict:
@@ -108,6 +111,7 @@ class Hook:
         try:
             result = self.deserialize(response, *args, **kwargs)
         except ValueError as e:
+            capture_error(e)
             raise RuntimeError('Response could not be interpreted')
 
         self.callback(result, *args, **kwargs)

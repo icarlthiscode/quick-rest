@@ -2,6 +2,7 @@ from django.http import HttpRequest
 from django.db import models
 
 from .json import JsonError, JsonView
+from .log import capture_error
 from .model import IntegrityError, ModelError, get_fields, ValidationError
 
 class ConfigError(Exception):
@@ -173,14 +174,16 @@ class ApiView(JsonView):
         if key:
             try:
                 obj = self.retrieve_model_by_key(key)
-            except ValueError:
+            except ValueError as e:
+                capture_error(e)
                 return JsonError.badRequest
 
             try:
                 return {self.model.model_name :
                     self.serialize_model(obj)
                 }
-            except (ConfigError, ModelError):
+            except (ConfigError, ModelError) as e:
+                capture_error(e)
                 return JsonError.serverError
 
         objs = self.retrieve_all_models()
@@ -188,43 +191,48 @@ class ApiView(JsonView):
             return {f'{self.model.model_name}s' :
                 {i.pk : self.serialize_model(i) for i in objs}
             }
-        except (ConfigError, ModelError):
+        except (ConfigError, ModelError) as e:
+            capture_error(e)
             return JsonError.serverError
 
     def post(self, request: HttpRequest, key = None):
 
         try:
             json = self.json_body[self.model.model_name]
-        except KeyError:
+        except KeyError as e:
+            capture_error(e)
             return JsonError.badRequest
 
         try:
             json = self.deserialize(json)
-        except DeserializationError:
+        except DeserializationError as e:
+            capture_error(e)
             return JsonError.badRequest
-        except:
-            return JsonError.serverError
 
         if key:
             try:
                 obj = self.retrieve_model_by_key(key)
                 obj = self.update_model(obj, **json)
-            except ValueError:
+            except ValueError as e:
+                capture_error(e)
                 return JsonError.notFound
-            except ModelError:
+            except ModelError as e:
+                capture_error(e)
                 return JsonError.badRequest
 
         else:
             try:
                 obj = self.create_model(**json)
-            except (ModelError, ValidationError):
+            except (ModelError, ValidationError) as e:
+                capture_error(e)
                 return JsonError.badRequest
 
         try:
             return {self.model.model_name :
                 self.serialize_model(obj)
             }
-        except (ConfigError, ModelError):
+        except (ConfigError, ModelError) as e:
+            capture_error(e)
             return JsonError.serverError
 
     def delete(self, request: HttpRequest, key = None):
@@ -234,11 +242,13 @@ class ApiView(JsonView):
 
         try:
             obj = self.retrieve_model_by_key(key)
-        except ValueError:
+        except ValueError as e:
+            capture_error(e)
             return JsonError.notFound
 
         try:
             self.delete_model(obj)
             return {'success' : True}
-        except IntegrityError:
+        except IntegrityError as e:
+            capture_error(e)
             return JsonError.badRequest

@@ -12,6 +12,7 @@ from django.http import JsonResponse, HttpRequest
 from django.utils.decorators import decorator_from_middleware, method_decorator
 
 from .json import JsonError
+from .log import capture_error, error
 
 User = get_user_model()
 
@@ -321,17 +322,17 @@ class Middleware:
             auth_method = getattr(callback, AUTH_METHOD_ATTR, None)
             if auth_method: auth_method(request)
             else: authorize_request(request)
-        except AuthError:
+        except AuthError as e:
             # return 401; failed verification will throw error
+            capture_error(e)
             return JsonResponse(JsonError.unauthorized)
-        except:
-            return JsonResponse(JsonError.serverError)
 
         permissions = getattr(callback, REQ_PERM_ATTR, False)
         if permissions:
             for p in permissions:
                 if p not in request.auth.permissions:
-                    return JsonResponse(JsonError.badRequest)
+                    error('Invalid permissions')
+                    return JsonResponse(JsonError.unauthorized)
 
     def __init__(self, get_response):
 
