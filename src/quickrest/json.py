@@ -1,6 +1,6 @@
 from json import loads as load_json
 
-from django.http import JsonResponse, HttpRequest
+from django.http import HttpRequest, JsonResponse as DjangoJsonResponse
 from django.views import View
 
 GET = 'GET'
@@ -50,6 +50,14 @@ class JsonError(dict):
     def __init__(self, code: int, msg: str):
         super().__init__()
         self.update(error_dict(code, msg))
+
+class JsonResponse(DjangoJsonResponse):
+
+    def __init__(self, data, **kwargs):
+        super().__init__(data, **kwargs)
+
+        if ('status' not in kwargs) and data and ('error' in data):
+            if 'code' in data['error']: self.status_code = data['error']['code']
 
 def load_json_request(request: HttpRequest) -> dict:
     """Extract json fields from request body.
@@ -105,7 +113,7 @@ class JsonView(View):
         # try and load json objects only if request not empty
         if (request.body
                 and not try_load_json_request(request, self.json_body)):
-            return JsonResponse(self.json_body)
+            return JsonResponse(JsonError.badRequest)
 
         response = super().dispatch(request, *args, **kwargs)
 

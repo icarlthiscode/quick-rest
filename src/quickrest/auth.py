@@ -8,10 +8,10 @@ import jwt
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.http import JsonResponse, HttpRequest
+from django.http import HttpRequest
 from django.utils.decorators import decorator_from_middleware, method_decorator
 
-from .json import JsonError
+from .json import JsonError, JsonResponse
 from .log import capture_error, error
 
 User = get_user_model()
