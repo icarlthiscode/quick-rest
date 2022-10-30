@@ -38,14 +38,23 @@ class JsonError(dict):
             Discription of error and context.
     """
 
-    badRequest = error_dict(400, 'Bad request')
-    badMethod = error_dict(400, 'Invalid request method')
-    malformedBody = error_dict(400, 'Malformed request body')
+    bad_request = error_dict(400, 'Bad request')
+    bad_method = error_dict(400, 'Invalid request method')
+    malformed_body = error_dict(400, 'Malformed request body')
     unauthorized = error_dict(401, 'Unauthorized request')
-    alreadyExists = error_dict(403, 'Resource already exists')
-    notFound = error_dict(404, 'Resource not found')
-    badCsvFile = error_dict(415, 'Could not import CSV file')
-    serverError = error_dict(500, 'Could not process request')
+    already_exists = error_dict(403, 'Resource already exists')
+    not_found = error_dict(404, 'Resource not found')
+    bad_csv_file = error_dict(415, 'Could not import CSV file')
+    server_error = error_dict(500, 'Could not process request')
+
+    # DEPR
+    badRequest = bad_request
+    badMethod = bad_method
+    malformedBody = malformed_body
+    alreadyExists = already_exists
+    notFound = not_found
+    badCsvFile = bad_csv_file
+    serverError = server_error
 
     def __init__(self, code: int, msg: str):
         super().__init__()
