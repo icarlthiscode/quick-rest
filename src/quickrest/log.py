@@ -35,3 +35,21 @@ def error(msg: str):
         handle_error(msg)
     except NameError as e:
         pass
+
+def log(msg: str):
+    """Report a log message with configured logging function
+
+    The message is passed to the loggin function configured in the Django
+    settings field QUICKREST_LOG, accepting the message as the only positional
+    argument.
+
+    Args:
+        msg:
+            The message to report.
+    """
+
+    try:
+        handle_log = settings.QUICKREST_LOG
+        handle_log(msg)
+    except NameError:
+        pass

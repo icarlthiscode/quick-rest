@@ -2,7 +2,7 @@ from django.http import HttpRequest
 from django.db import models
 
 from .json import JsonError, JsonView
-from .log import capture_error
+from .log import capture_error, log
 from .model import IntegrityError, ModelError, get_fields, ValidationError
 
 class ConfigError(Exception):
@@ -174,9 +174,9 @@ class ApiView(JsonView):
         if key:
             try:
                 obj = self.retrieve_model_by_key(key)
-            except ValueError as e:
-                capture_error(e)
-                return JsonError.badRequest
+            except ValueError:
+                log('Resource not found')
+                return JsonError.not_found
 
             try:
                 return {self.model.model_name :
@@ -199,22 +199,22 @@ class ApiView(JsonView):
 
         try:
             json = self.json_body[self.model.model_name]
-        except KeyError as e:
-            capture_error(e)
+        except KeyError:
+            log('No resource data provided')
             return JsonError.badRequest
 
         try:
             json = self.deserialize(json)
         except DeserializationError as e:
             capture_error(e)
-            return JsonError.badRequest
+            return JsonError.server_error
 
         if key:
             try:
                 obj = self.retrieve_model_by_key(key)
                 obj = self.update_model(obj, **json)
-            except ValueError as e:
-                capture_error(e)
+            except ValueError:
+                log('Resource not found')
                 return JsonError.notFound
             except ModelError as e:
                 capture_error(e)
@@ -238,12 +238,13 @@ class ApiView(JsonView):
     def delete(self, request: HttpRequest, key = None):
 
         if not key:
+            log('No resource key provided')
             return JsonError.badRequest
 
         try:
             obj = self.retrieve_model_by_key(key)
-        except ValueError as e:
-            capture_error(e)
+        except ValueError:
+            log('Resource not found')
             return JsonError.notFound
 
         try:
@@ -251,4 +252,4 @@ class ApiView(JsonView):
             return {'success' : True}
         except IntegrityError as e:
             capture_error(e)
-            return JsonError.badRequest
+            return JsonError.server_error
