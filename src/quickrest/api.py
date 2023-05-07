@@ -4,6 +4,7 @@ from django.db.models import QuerySet
 from django.http import HttpRequest
 
 from .http import (
+    Reasons,
     HttpError,
     RequestError,
     NotFoundError,
@@ -154,7 +155,8 @@ class ApiView(JsonView, Generic[MT]):
             model.full_clean()
         except (ModelError, ValidationError) as e:
             raise RequestError(
-                f'Invalid {self.model.model_name_verbose} data'
+                f'Invalid {self.model.model_name_verbose} data',
+                reason = Reasons.invalid_field,
             ) from e
 
         return model
@@ -182,7 +184,8 @@ class ApiView(JsonView, Generic[MT]):
             return self.model.create(**fields)
         except (ModelError, ValidationError) as e:
             raise RequestError(
-                f'Invalid {self.model.model_name_verbose()} data'
+                f'Invalid {self.model.model_name_verbose()} data',
+                reason = Reasons.invalid_field,
             ) from e
 
     # TODO: improve QuerySet typing
@@ -243,7 +246,10 @@ class ApiView(JsonView, Generic[MT]):
         try:
             return model.update(**fields)
         except (ModelError, ValidationError) as e:
-            raise RequestError('Invalid POST data') from e
+            raise RequestError(
+                {self.model.model_name_verbose()},
+                reason = Reasons.invalid_field,
+            ) from e
 
     def delete_model(self, model):
         """Delete model instance from database.
@@ -259,7 +265,8 @@ class ApiView(JsonView, Generic[MT]):
             model.delete()
         except IntegrityError as e:
             raise RequestError(
-                f'Cannot delete {self.model.model_name_verbose()} ({model.pk})'
+                f'Cannot delete {self.model.model_name_verbose()} ({model.pk})',
+                reason = Reasons.integrity_error,
             ) from e
 
     def return_model(self, obj : Model, **keys) -> Json:
@@ -330,6 +337,7 @@ class ApiView(JsonView, Generic[MT]):
         if not self.primary_key:
             raise RequestError(
                 'No resource key provided',
+                reason = Reasons.no_key,
                 request = request,
             )
 
@@ -355,4 +363,8 @@ class ApiView(JsonView, Generic[MT]):
                     event_type = EVENT_TYPE.http,
                     request = e.request,
                 )
-            return JsonResponse(JsonError.from_code(e.status_code))
+
+            error_response = JsonError.from_code(e.status_code)
+            if e.reason: error_response['reason'] = e.reason
+
+            return JsonResponse(error_response)
