@@ -314,6 +314,7 @@ class ApiView(JsonView, Generic[MT]):
             return JsonError.bad_method
 
         json = self.read_json(**keys)
+        json = {} if json is None else json
         fields = self.deserialize(json)
 
         obj =  self.create_model(**fields)
