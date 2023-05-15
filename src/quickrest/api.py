@@ -18,7 +18,6 @@ from .models import (
     ModelError,
     ValidationError,
     Model,
-    get_fields,
 )
 
 Json = dict[str, Union[None, int, str, bool]]
@@ -31,9 +30,6 @@ class ApiView(JsonView, Generic[MT]):
     """
 
     model : MT = None
-
-    visible_fields = None
-    strict_fields = True
 
     primary_key = None
     query = None
@@ -61,6 +57,30 @@ class ApiView(JsonView, Generic[MT]):
             return self.json_body[self.model.model_name()]
         except KeyError:
             return None
+
+    def filter_inbound(self, fields : Json) -> Json:
+        """Filter inbound JSON data.
+
+        Args:
+            fields: JSON data to be filtered.
+
+        Returns:
+            Filtered JSON data.
+        """
+
+        return fields
+
+    def filter_outbound(self, fields : Json) -> Json:
+        """Filter outbound JSON data.
+
+        Args:
+            fields: JSON data to be filtered.
+
+        Returns:
+            Filtered JSON data.
+        """
+
+        return fields
 
     def serialize(self, model_fields: dict) -> Json:
         """Serialize model fields into JSON dictionary.
@@ -100,7 +120,7 @@ class ApiView(JsonView, Generic[MT]):
 
         return json_fields
 
-    def serialize_model(self, model: Model) -> Json:
+    def render_model(self, record : MT) -> Json:
         """Serialize model instance to JSON.
 
         Args:
@@ -116,11 +136,7 @@ class ApiView(JsonView, Generic[MT]):
                 An unexpected error was encountered.
         """
 
-        if not self.visible_fields:
-            raise ConfigError('Attribute visible_fields must be defined.')
-        return self.serialize(
-            get_fields(model, self.visible_fields, self.strict_fields)
-        )
+        return self.serialize(record.raw())
 
     def check_model(self):
         """Verify model is defined.
@@ -151,15 +167,15 @@ class ApiView(JsonView, Generic[MT]):
 
         self.check_model()
         try:
-            model = self.model.new(**fields)
-            model.full_clean()
+            record = self.model.new(**fields)
+            record.full_clean()
         except (ModelError, ValidationError) as e:
             raise RequestError(
                 f'Invalid {self.model.model_name_verbose} data',
                 reason = Reasons.invalid_field,
             ) from e
 
-        return model
+        return record
 
     def create_model(self, **fields) -> MT:
         """Create new model instance with inital field values.
@@ -227,7 +243,7 @@ class ApiView(JsonView, Generic[MT]):
         except self.model.DoesNotExist:
             raise NotFoundError('Resourse not found.')
 
-    def update_model(self, model, **fields) -> MT:
+    def update_model(self, record : MT, **fields) -> MT:
         """Update and save model with new field values.
 
         Args:
@@ -244,14 +260,14 @@ class ApiView(JsonView, Generic[MT]):
         """
 
         try:
-            return model.update(**fields)
+            return record.update(**fields)
         except (ModelError, ValidationError) as e:
             raise RequestError(
                 {self.model.model_name_verbose()},
                 reason = Reasons.invalid_field,
             ) from e
 
-    def delete_model(self, model):
+    def delete_model(self, record):
         """Delete model instance from database.
 
         Raises:
@@ -262,14 +278,14 @@ class ApiView(JsonView, Generic[MT]):
         """
 
         try:
-            model.delete()
+            record.delete()
         except IntegrityError as e:
             raise RequestError(
-                f'Cannot delete {self.model.model_name_verbose()} ({model.pk})',
+                f'Cannot delete {self.model.model_name_verbose()} ({record.pk})',
                 reason = Reasons.integrity_error,
             ) from e
 
-    def return_model(self, obj : Model, **keys) -> Json:
+    def return_model(self, record : MT, **keys) -> Json:
         """Return model instance in serialized JSON format.
 
         Returns:
@@ -280,9 +296,12 @@ class ApiView(JsonView, Generic[MT]):
                 An unexpected error was encountered.
         """
 
-        return { self.model.model_name() : self.serialize_model(obj) }
+        return {
+            self.model.model_name() :
+                self.filter_outbound(self.render_model(record))
+        }
 
-    def return_models(self, objs : list[Model], **keys) -> Json:
+    def return_models(self, records : list[MT], **keys) -> Json:
         """Return a list of model instances in serialized JSON format.
 
         Returns:
@@ -293,21 +312,23 @@ class ApiView(JsonView, Generic[MT]):
                 An unexpected error was encountered.
         """
 
-        return { f'{self.model.model_plural_name()}' :
-            { i.pk : self.serialize_model(i) for i in objs }
+        return {
+            f'{self.model.model_plural_name()}' :
+                { i.pk : self.filter_outbound(self.render_model(i))
+                    for i in records }
         }
 
     def get(self, request: HttpRequest, **keys):
         if self.primary_key:
-            obj = self.retrieve_model_by_key(
+            record = self.retrieve_model_by_key(
                 self.primary_key,
                 **self.query_params,
             )
-            return self.return_model(obj, **keys)
+            return self.return_model(record, **keys)
 
         else:
-            objs = self.retrieve_all_models(**self.query_params)
-            return self.return_models(objs, **keys)
+            records = self.retrieve_all_models(**self.query_params)
+            return self.return_models(records, **keys)
 
     def post(self, request: HttpRequest, **keys):
         if self.primary_key:
@@ -315,11 +336,13 @@ class ApiView(JsonView, Generic[MT]):
 
         json = self.read_json(**keys)
         json = {} if json is None else json
+        json = self.filter_inbound(json)
+
         fields = self.deserialize(json)
 
-        obj =  self.create_model(**fields)
+        record =  self.create_model(**fields)
 
-        return self.return_model(obj, **keys)
+        return self.return_model(record, **keys)
 
     def put(self, request: HttpRequest, **keys):
         if not self.primary_key:
@@ -328,11 +351,11 @@ class ApiView(JsonView, Generic[MT]):
         json = self.read_json(**keys)
         fields = self.deserialize(json)
 
-        obj = self.retrieve_model_by_key(**keys)
+        record = self.retrieve_model_by_key(**keys)
         self.validate_model(**fields)
-        obj = self.update_model(obj, **fields)
+        record = self.update_model(record, **fields)
 
-        return self.return_model(obj, **keys)
+        return self.return_model(record, **keys)
 
     def delete(self, request: HttpRequest, **keys):
         if not self.primary_key:
@@ -342,8 +365,8 @@ class ApiView(JsonView, Generic[MT]):
                 request = request,
             )
 
-        obj = self.retrieve_model_by_key(self.primary_key)
-        self.delete_model(obj)
+        record = self.retrieve_model_by_key(self.primary_key)
+        self.delete_model(record)
 
         return { 'success' : True }
 
@@ -366,6 +389,6 @@ class ApiView(JsonView, Generic[MT]):
                 )
 
             error_response = JsonError.from_code(e.status_code)
-            if e.reason: error_response['reason'] = e.reason
+            if e.reason: error_response['error']['reason'] = e.reason
 
             return JsonResponse(error_response)

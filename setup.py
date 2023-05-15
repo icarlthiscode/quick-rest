@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name = 'quick-rest',
-    version = '0.0.1',
+    version = '0.0.2',
     description = 'A lightweight toolset for structuring API applications.',
     packages = ['quickrest'],
     package_dir = {'' : 'src'},

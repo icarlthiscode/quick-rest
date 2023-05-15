@@ -9,36 +9,6 @@ class ModelError(AttributeError):
     """An error associated with model field evaluation and assignment.
     """
 
-def get_fields(
-        model: models.Model, field_names, fail_missing = False
-    ) -> dict[str, Any]:
-    """Create dictionary from a Django model.
-
-    Args:
-        model:
-            A django model instance to evaluate.
-        field_names:
-            A list of field name strings to evaluate.
-        fail_missing:
-            Whether missing
-
-    Raise:
-        ModelError:
-            Expected model field is not defined.
-    """
-
-    fields = {}
-    for fn in field_names:
-        if not (hasattr(model, fn) or fail_missing):
-            continue
-
-        try:
-            fields[fn] = getattr(model, fn)
-        except AttributeError as e:
-            raise ModelError(f'Required field {fn} not found') from e
-
-    return fields
-
 class Model(models.Model):
     """An extended Django model abstraction with added validation functionality.
     """
@@ -54,6 +24,7 @@ class Model(models.Model):
 
         name = 'model'
         mutable_fields = None
+        serializable_fields = None
 
     class Meta:
         abstract = True
@@ -92,10 +63,21 @@ class Model(models.Model):
             return cls.BaseQuickConfig.mutable_fields
 
     @classmethod
+    def model_serializable_fields(cls) -> str:
+        try:
+            return cls.QuickConfig.serializable_fields
+        except AttributeError:
+            return cls.BaseQuickConfig.serializable_fields
+
+    @classmethod
     def get_model_fields(cls) -> list[Union[Field, ForeignObjectRel]]:
         """List the names of configured Django model fields.
         """
         return cls._meta.get_fields()
+
+    @classmethod
+    def filter_fields(cls, **kwargs) -> dict:
+        return kwargs.copy()
 
     @classmethod
     def new(cls, **kwargs) -> Model:
@@ -115,7 +97,7 @@ class Model(models.Model):
         """
 
         try:
-            return cls(**kwargs)
+            return cls(**cls.filter_fields(**kwargs))
         except TypeError as e:
             raise ModelError(
                 f'Invalid assignment during {cls.model_name_verbose()} creation'
@@ -173,8 +155,10 @@ class Model(models.Model):
                 Attribute values are invalid.
         """
 
+        filtered_kwargs = self.filter_fields(**kwargs)
+
         try:
-            for kw, arg in kwargs.items():
+            for kw, arg in filtered_kwargs.items():
                 if kw in self.model_mutable_fields():
                     setattr(self, kw, arg)
 
@@ -205,3 +189,20 @@ class Model(models.Model):
             raise IntegrityError(
                 f'Could not delete {self.model_name_verbose()}'
             ) from e
+
+    def raw(self) -> dict[str, Any]:
+        """Return raw model data.
+
+        Returns:
+            A dictionary of model attributes and values.
+        """
+
+        field_names = self.model_serializable_fields()
+        if field_names is None:
+            field_names = self.get_model_fields()
+            field_names = [f.name for f in field_names]
+
+        return {
+            fn : getattr(self, fn) for fn in field_names
+                for fn in field_names
+        }
