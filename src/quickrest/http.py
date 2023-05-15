@@ -4,6 +4,7 @@ from typing import Any, Dict
 from django.http import HttpRequest, HttpResponse
 
 class Reasons:
+    bad_request = 'badRequest'
     invalid_field = 'invalidField'
     no_key = 'noKey'
     integrity_error = 'integrityError'
@@ -32,6 +33,7 @@ class RequestError(HttpError):
     """Invalid request.
     """
     status_code = 400
+    reason = Reasons.bad_request
 
 class NotFoundError(HttpError):
     """Resource not found.
